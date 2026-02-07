@@ -20,15 +20,32 @@ O projeto inclui funcionalidades avançadas como validação de entrada, tratame
 - Token de Bot do Telegram (@BotFather).
 - Chave de API da OpenWeatherMap.
 - (Opcional) Chave de API do Google Gemini.
+- **Ngrok** (para expor o webhook localmente).
 
 ### 1. Importação do Workflow
-1. Abra o editor do N8N.
+1. Abra o editor do N8N (geralmente em `http://localhost:5678`).
 2. Crie um novo workflow.
 3. No menu, selecione "Import from File".
 4. Escolha o arquivo `workflow-chatbot-telegram.json` deste repositório.
 
-### 2. Configuração de Credenciais
-Para que o bot funcione, é necessário configurar as credenciais no menu "Credentials" do N8N:
+### 2. Configuração de Ambiente Local (Ngrok)
+Como o N8N está rodando em ambiente local (Docker), é necessário expor a porta para que o Telegram consiga enviar as mensagens (Webhook).
+
+1. Execute o ngrok na porta do N8N:
+   ngrok http 5678
+
+2. Copie o endereço HTTPS gerado (ex: `https://xxxx-xx-xx.ngrok-free.app`).
+
+3. Adicione este endereço na variável de ambiente `WEBHOOK_URL` dentro do arquivo `docker-compose.yml` (no serviço `n8n-editor`):
+   
+   environment:
+     - WEBHOOK_URL=https://seu-endereco-ngrok.app
+
+4. Reinicie o container do N8N para aplicar a configuração:
+   docker-compose up -d
+
+### 3. Configuração de Credenciais
+Para que o bot funcione, é necessário configurar as credenciais no menu "Credentials" do N8N. Utilize os seguintes nomes para facilitar a identificação:
 
 | Tipo de Credencial | Nome Sugerido | Variável Esperada (Conceito) | Descrição |
 |--------------------|---------------|-------------------|-----------|
@@ -36,10 +53,10 @@ Para que o bot funcione, é necessário configurar as credenciais no menu "Crede
 | **OpenWeatherMap API** | `OpenWeather Credential` | `OPENWEATHER_API_KEY` | Chave de API da OpenWeather. |
 | **Google Gemini API** | `Google Gemini Credential` | N/A | (Opcional) Para respostas criativas. |
 
-> **Nota de Segurança:** As chaves não estão incluídas no arquivo JSON por questões de segurança.
+> **Nota de Segurança:** As chaves não estão incluídas no arquivo JSON por questões de segurança. Você deve inserir suas próprias chaves ao configurar as credenciais no N8N.
 
-### 3. Executando o Bot
-1. Ative o workflow no N8N (switch "Active").
+### 4. Executando o Bot
+1. Ative o workflow no N8N (chave "Active" no topo da tela).
 2. Abra o bot no Telegram.
 3. Envie uma mensagem no formato: `Cidade, UF` (Ex: `Curitiba, PR`).
 4. O bot responderá com a temperatura e um comentário sobre o clima.
@@ -47,15 +64,15 @@ Para que o bot funcione, é necessário configurar as credenciais no menu "Crede
 ## 🛠️ Detalhes da Implementação
 
 ### Estrutura do Fluxo
-1. **Trigger:** Recebe a mensagem do Telegram.
-2. **Validação (IF):** Regex valida o formato `Texto, Texto`.
-3. **Tratamento:** Normaliza o texto (remove acentos, minúsculas).
+1. **Trigger:** Recebe a mensagem do Telegram (via Webhook).
+2. **Validação (IF):** Regex valida o formato `Texto, Texto` (ex: `São Paulo, SP`).
+3. **Tratamento:** Normaliza o texto (remove acentos, converte para minúsculas e remove espaços extras).
 4. **API:** Consulta a OpenWeatherMap.
-5. **Decisão (IF):** Verifica se o código HTTP é 200.
+5. **Decisão (IF):** Verifica se o código HTTP retornado é 200 (sucesso).
 6. **IA + Fallback:**
    - Tenta gerar frase via **Google Gemini**.
-   - Se falhar, o nó **Code** assume e gera a mensagem padrão.
-7. **Resposta:** Envia a mensagem final ao usuário.
+   - Se falhar, o nó **Code** assume e gera a mensagem padrão (Fallback Determinístico).
+7. **Resposta:** Envia a mensagem final formatada ao usuário via Telegram.
 
 ## 🐳 Docker
 O ambiente pode ser reproduzido utilizando o arquivo `docker-compose.yml` incluído neste repositório.
